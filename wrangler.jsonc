@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "solax-monitor-api",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-07",
+  "workers_dev": true,
+  "vars": {
+    "SOLAX_API_URL": "https://openapi-eu.solaxcloud.com",
+    "ALLOWED_ORIGIN": "https://tienpctq.github.io"
+  },
+  "observability": {"enabled": false}
+}

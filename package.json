@@ -1,0 +1,8 @@
+{
+  "name":"solax-monitor",
+  "private":true,
+  "type":"module",
+  "scripts":{"test":"node tests/solax.test.mjs && node tests/access.test.mjs","deploy:api":"wrangler deploy","dev:api":"wrangler dev"},
+  "devDependencies":{"wrangler":"4.92.0"},
+  "engines":{"node":">=22.18.0"}
+}

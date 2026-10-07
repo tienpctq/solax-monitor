@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {powers,number,solaxRoute} from '../worker/solax.ts';
+assert.equal(number(null),null);assert.equal(number(0),0);
+assert.deepEqual(powers({MPPTTotalInputPower:3174,totalActivePower:null,acPower1:3174,acPower2:null},1),{pv:3.174,ac:3.174});
+assert.deepEqual(powers({mpptMap:{MPPT1Power:1500,mppt2Power:500},acPower1:2000},1),{pv:2,ac:2});
+assert.deepEqual(powers({},1),{pv:null,ac:null});
+assert.deepEqual(powers({MPPTTotalInputPower:3,totalActivePower:0},4),{pv:3,ac:0});
+const calls=[];globalThis.fetch=async(url,options)=>{const u=new URL(url);calls.push(u);let result;if(u.pathname.endsWith('/token'))return Response.json({code:0,result:{access_token:'test-only',expires_in:3600}});if(u.pathname.endsWith('page_plant_info'))return new Response(u.searchParams.get('businessType')==='1'?' {"code":10000,"result":{"pages":1,"records":[{"plantId":2100000000000000001,"plantName":"Test","plantTimeZone":"(UTC+07:00)Bangkok","pvCapacity":20,"businessType":1}]}}':'{"code":10000,"result":{"pages":1,"records":[]}}');if(u.pathname.endsWith('page_device_info'))result={pages:1,records:[{deviceSn:'a'},{deviceSn:'b'}]};else if(u.pathname.endsWith('/plant/realtime_data'))result={dailyYield:100};else if(u.pathname.endsWith('realtime_data'))result=u.searchParams.get('deviceType')==='2'?[{deviceSn:'',batteryVoltage:0,batterySOC:0}]:[{deviceSn:'a',MPPTTotalInputPower:1000,acPower1:1000},{deviceSn:'b',MPPTTotalInputPower:2000,acPower1:2000}];else if(u.pathname.endsWith('history_data')){const start=Number(u.searchParams.get('startTime'));assert.ok(Number(u.searchParams.get('endTime'))-start<=43200000);result=[{deviceSn:'a',dataTime:new Date(start).toISOString(),MPPTTotalInputPower:1000,acPower1:1000},{deviceSn:'b',dataTime:new Date(start).toISOString(),MPPTTotalInputPower:2000,acPower1:2000}]}else throw Error('unexpected path');return Response.json({code:10000,result})};
+const env={SOLAX_API_URL:'https://openapi-eu.solaxcloud.com',SOLAX_CLIENT_ID:'test',SOLAX_CLIENT_SECRET:'test'};
+const live=await(await solaxRoute(new Request('https://test/api/overview'),env)).json();assert.equal(live.plant.plantId,'2100000000000000001');assert.equal(live.pvPower,3);assert.equal(live.acPower,3);assert.equal(live.batteries.length,0);
+const before=calls.length;await solaxRoute(new Request('https://test/api/overview'),env);assert.equal(calls.length,before);
+const day=new Date(Date.now()-86400000).toISOString().slice(0,10);const hist=await(await solaxRoute(new Request('https://test/api/history?date='+day),env)).json();assert.equal(hist.points.length,2);assert.equal(hist.points[0].pv,3);assert.equal(calls.filter(u=>u.pathname.endsWith('history_data')).length,2);
+assert.equal((await solaxRoute(new Request('https://test/api/overview',{method:'POST'}),env)).status,405);
+assert.equal((await solaxRoute(new Request('https://test/api/history?date=2099-01-01'),env)).status,400);
+assert.equal((await solaxRoute(new Request('https://test/api/overview?plantId=not-authorized'),env)).status,502);
+console.log('PASS: units, missing values, long IDs, aggregation, empty battery records, caching, 12-hour history windows and read-only routes.');

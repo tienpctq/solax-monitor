@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import worker,{authorized} from '../worker/index.ts';
+const token='test-only-random-viewer-token-01234567890123456789';
+const digest=Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token))).toString('hex');
+assert.equal(await authorized('Bearer '+token,digest),true);
+assert.equal(await authorized('Bearer '+'x'.repeat(48),digest),false);
+assert.equal(await authorized(null,digest),false);
+const env={ALLOWED_ORIGIN:'https://example.github.io',VIEWER_TOKEN_SHA256:digest};
+let r=await worker.fetch(new Request('https://test/api/overview'),env);assert.equal(r.status,401);
+r=await worker.fetch(new Request('https://test/api/overview',{headers:{Origin:'https://evil.test',Authorization:'Bearer '+token}}),env);assert.equal(r.status,403);
+r=await worker.fetch(new Request('https://test/api/overview',{method:'OPTIONS',headers:{Origin:env.ALLOWED_ORIGIN}}),env);assert.equal(r.status,204);assert.equal(r.headers.get('Access-Control-Allow-Origin'),env.ALLOWED_ORIGIN);
+r=await worker.fetch(new Request('https://test/api/overview',{method:'POST',headers:{Origin:env.ALLOWED_ORIGIN,Authorization:'Bearer '+token}}),env);assert.equal(r.status,405);
+r=await worker.fetch(new Request('https://test/anything',{headers:{Authorization:'Bearer '+token}}),env);assert.equal(r.status,404);
+console.log('PASS: access key, rejected unauthorized origins, preflight, read-only routes.');
